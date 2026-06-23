@@ -304,7 +304,7 @@
     async function initCamera(facingMode = 'environment') {
       let stream;
       const attempts = [
-        { video: { facingMode: { ideal: facingMode } } },
+        { video: { facingMode: { ideal: facingMode }, width: { ideal: 4096 }, height: { ideal: 2160 } } },
         { video: true },
       ];
       for (const constraints of attempts) {
@@ -382,11 +382,11 @@
 
       countdownOverlay.classList.add('visible');
 
-      for (let i = 5; i >= 1; i--) {
-        // Re-trigger animation each tick by cloning the node
-        const next = countdownNumber.cloneNode(false);
-        next.textContent = i;
-        countdownNumber.parentNode.replaceChild(next, countdownNumber.parentNode.querySelector('#countdown-number'));
+      for (let i = 3; i >= 1; i--) {
+        countdownNumber.textContent = i;
+        countdownNumber.style.animation = 'none';
+        void countdownNumber.offsetHeight;
+        countdownNumber.style.animation = '';
         await sleep(1000);
       }
 
