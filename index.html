@@ -71,20 +71,6 @@
       100% { transform: scale(1); opacity: 1; }
     }
 
-    #debug {
-      position: absolute;
-      top: calc(8px + env(safe-area-inset-top));
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 20;
-      background: rgba(0, 0, 0, 0.6);
-      color: #fff;
-      font-size: 0.75rem;
-      padding: 4px 10px;
-      border-radius: 8px;
-      white-space: nowrap;
-      pointer-events: none;
-    }
 
     #take-photo-btn {
       position: absolute;
@@ -259,7 +245,6 @@
     <div id="countdown-overlay">
       <span id="countdown-number"></span>
     </div>
-    <div id="debug">v4 · <span id="debug-status">starting…</span></div>
     <button id="flash-btn" aria-label="Toggle flash">⚡</button>
     <button id="flip-btn" aria-label="Flip camera">↺</button>
     <button id="take-photo-btn">Take Photo</button>
@@ -296,8 +281,6 @@
     const doneMessage     = document.getElementById('done-message');
     const flipBtn         = document.getElementById('flip-btn');
     const flashBtn        = document.getElementById('flash-btn');
-    const debugEl         = document.getElementById('debug-status');
-    function dbg(msg) { debugEl.textContent = msg; }
 
     const screens = {
       camera:  document.getElementById('camera-screen'),
@@ -319,7 +302,6 @@
     // ── Camera ──
 
     async function initCamera(facingMode = 'environment') {
-      dbg('requesting camera…');
       let stream;
       const attempts = [
         { video: { facingMode: { ideal: facingMode } } },
@@ -330,25 +312,20 @@
           stream = await navigator.mediaDevices.getUserMedia(constraints);
           break;
         } catch (e) {
-          dbg('attempt failed: ' + e.name);
+          console.warn('getUserMedia attempt failed:', e.name);
         }
       }
       if (!stream) {
-        dbg('no camera — check permissions');
+        alert('Camera access is required. Please allow camera access in Settings and reload.');
         return;
       }
-      dbg('stream ok, playing…');
       video.srcObject = stream;
       video.style.transform = facingMode === 'user' ? 'scaleX(-1)' : '';
       try {
         await video.play();
-        dbg(`playing ${video.videoWidth}×${video.videoHeight}`);
       } catch (e) {
-        dbg('play() failed: ' + e.name);
+        console.error('video.play() failed:', e);
       }
-      video.addEventListener('loadedmetadata', () => {
-        dbg(`ready ${video.videoWidth}×${video.videoHeight}`);
-      }, { once: false });
       updateTorchAvailability();
     }
 
