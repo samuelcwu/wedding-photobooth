@@ -1,4 +1,4 @@
-const CACHE = 'photobooth-v2';
+const CACHE = 'photobooth-v3';
 const FILES = ['./index.html', './manifest.json', './sw.js', './icon.svg'];
 
 self.addEventListener('install', event => {

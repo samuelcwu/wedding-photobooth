@@ -71,6 +71,21 @@
       100% { transform: scale(1); opacity: 1; }
     }
 
+    #debug {
+      position: absolute;
+      top: calc(8px + env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 8px;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
     #take-photo-btn {
       position: absolute;
       bottom: calc(40px + env(safe-area-inset-bottom));
@@ -244,6 +259,7 @@
     <div id="countdown-overlay">
       <span id="countdown-number"></span>
     </div>
+    <div id="debug">v4 · <span id="debug-status">starting…</span></div>
     <button id="flash-btn" aria-label="Toggle flash">⚡</button>
     <button id="flip-btn" aria-label="Flip camera">↺</button>
     <button id="take-photo-btn">Take Photo</button>
@@ -280,6 +296,8 @@
     const doneMessage     = document.getElementById('done-message');
     const flipBtn         = document.getElementById('flip-btn');
     const flashBtn        = document.getElementById('flash-btn');
+    const debugEl         = document.getElementById('debug-status');
+    function dbg(msg) { debugEl.textContent = msg; }
 
     const screens = {
       camera:  document.getElementById('camera-screen'),
@@ -301,19 +319,37 @@
     // ── Camera ──
 
     async function initCamera(facingMode = 'environment') {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode },
-          audio: false,
-        });
-        video.srcObject = stream;
-        await video.play();
-        video.style.transform = facingMode === 'user' ? 'scaleX(-1)' : '';
-        updateTorchAvailability();
-      } catch (err) {
-        alert('Camera access is required. Please allow camera access in Settings and reload.');
-        console.error('getUserMedia error:', err);
+      dbg('requesting camera…');
+      let stream;
+      const attempts = [
+        { video: { facingMode: { ideal: facingMode } } },
+        { video: true },
+      ];
+      for (const constraints of attempts) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          break;
+        } catch (e) {
+          dbg('attempt failed: ' + e.name);
+        }
       }
+      if (!stream) {
+        dbg('no camera — check permissions');
+        return;
+      }
+      dbg('stream ok, playing…');
+      video.srcObject = stream;
+      video.style.transform = facingMode === 'user' ? 'scaleX(-1)' : '';
+      try {
+        await video.play();
+        dbg(`playing ${video.videoWidth}×${video.videoHeight}`);
+      } catch (e) {
+        dbg('play() failed: ' + e.name);
+      }
+      video.addEventListener('loadedmetadata', () => {
+        dbg(`ready ${video.videoWidth}×${video.videoHeight}`);
+      }, { once: false });
+      updateTorchAvailability();
     }
 
     function updateTorchAvailability() {
