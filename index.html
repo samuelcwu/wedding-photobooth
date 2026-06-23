@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Wedding Photobooth</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    }
+
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: none;
+      background: #000;
+    }
+
+    .screen.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── CAMERA SCREEN ── */
+
+    #camera-screen {
+      position: relative;
+    }
+
+    #video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    #countdown-overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 10;
+    }
+
+    #countdown-overlay.visible {
+      display: flex;
+    }
+
+    #countdown-number {
+      font-size: 30vmin;
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 4px 32px rgba(0, 0, 0, 0.7);
+      line-height: 1;
+      animation: pulse 1s ease-out;
+    }
+
+    @keyframes pulse {
+      0%   { transform: scale(1.4); opacity: 0; }
+      30%  { opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    #take-photo-btn {
+      position: absolute;
+      bottom: calc(40px + env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      min-height: 80px;
+      padding: 0 52px;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #000;
+      background: #fff;
+      border: none;
+      border-radius: 48px;
+      cursor: pointer;
+      white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    #take-photo-btn:active {
+      background: #d0d0d0;
+    }
+
+    #take-photo-btn:disabled {
+      opacity: 0.4;
+    }
+
+    #flip-btn {
+      position: absolute;
+      top: calc(20px + env(safe-area-inset-top));
+      right: 20px;
+      z-index: 5;
+      width: 64px;
+      height: 64px;
+      font-size: 1.75rem;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.45);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    #flip-btn:active { background: rgba(0, 0, 0, 0.7); }
+    #flip-btn:disabled { opacity: 0.3; }
+
+    #flash-btn {
+      position: absolute;
+      top: calc(20px + env(safe-area-inset-top));
+      left: 20px;
+      z-index: 5;
+      width: 64px;
+      height: 64px;
+      font-size: 1.75rem;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.45);
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    #flash-btn:active  { background: rgba(0, 0, 0, 0.7); }
+    #flash-btn:disabled { opacity: 0.3; }
+    #flash-btn.flash-on { background: rgba(255, 200, 0, 0.75); color: #000; }
+
+    /* ── PREVIEW SCREEN ── */
+
+    #preview-screen {
+      position: relative;
+    }
+
+    #preview-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    #preview-buttons {
+      position: absolute;
+      bottom: calc(40px + env(safe-area-inset-bottom));
+      left: 0;
+      right: 0;
+      display: flex;
+      gap: 16px;
+      padding: 0 24px;
+      z-index: 5;
+    }
+
+    #preview-buttons button {
+      flex: 1;
+      min-height: 80px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    #retake-btn {
+      background: rgba(255, 255, 255, 0.75);
+      color: #000;
+    }
+
+    #retake-btn:active {
+      background: rgba(200, 200, 200, 0.75);
+    }
+
+    #share-btn {
+      background: #fff;
+      color: #000;
+    }
+
+    #share-btn:active {
+      background: #d0d0d0;
+    }
+
+    /* ── DONE SCREEN ── */
+
+    #done-screen {
+      align-items: center;
+      justify-content: center;
+    }
+
+    #done-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 36px;
+      padding: 48px 40px;
+      padding-bottom: calc(48px + env(safe-area-inset-bottom));
+    }
+
+    #done-message {
+      color: #fff;
+      font-size: 1.5rem;
+      font-weight: 500;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    #back-btn {
+      min-height: 80px;
+      padding: 0 56px;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #000;
+      background: #fff;
+      border: none;
+      border-radius: 48px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 4px 24px rgba(255, 255, 255, 0.2);
+    }
+
+    #back-btn:active {
+      background: #d0d0d0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Camera Screen -->
+  <div id="camera-screen" class="screen active">
+    <video id="video" autoplay playsinline muted></video>
+    <div id="countdown-overlay">
+      <span id="countdown-number"></span>
+    </div>
+    <button id="flash-btn" aria-label="Toggle flash">⚡</button>
+    <button id="flip-btn" aria-label="Flip camera">↺</button>
+    <button id="take-photo-btn">Take Photo</button>
+  </div>
+
+  <!-- Preview Screen -->
+  <div id="preview-screen" class="screen">
+    <img id="preview-img" alt="Captured photo">
+    <div id="preview-buttons">
+      <button id="retake-btn">Retake</button>
+      <button id="share-btn">Share to Print</button>
+    </div>
+  </div>
+
+  <!-- Done Screen -->
+  <div id="done-screen" class="screen">
+    <div id="done-content">
+      <p id="done-message">Photo shared!</p>
+      <button id="back-btn">Back to Camera</button>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    const video           = document.getElementById('video');
+    const countdownOverlay = document.getElementById('countdown-overlay');
+    const countdownNumber  = document.getElementById('countdown-number');
+    const takePhotoBtn    = document.getElementById('take-photo-btn');
+    const previewImg      = document.getElementById('preview-img');
+    const retakeBtn       = document.getElementById('retake-btn');
+    const shareBtn        = document.getElementById('share-btn');
+    const backBtn         = document.getElementById('back-btn');
+    const doneMessage     = document.getElementById('done-message');
+    const flipBtn         = document.getElementById('flip-btn');
+    const flashBtn        = document.getElementById('flash-btn');
+
+    const screens = {
+      camera:  document.getElementById('camera-screen'),
+      preview: document.getElementById('preview-screen'),
+      done:    document.getElementById('done-screen'),
+    };
+
+    let currentBlob = null;
+    let currentObjectURL = null;
+    let isCounting = false;
+    let currentFacingMode = 'environment';
+    let torchOn = false;
+
+    function showScreen(name) {
+      Object.values(screens).forEach(s => s.classList.remove('active'));
+      screens[name].classList.add('active');
+    }
+
+    // ── Camera ──
+
+    async function initCamera(facingMode = 'environment') {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode,
+            width:  { ideal: 4096 },
+            height: { ideal: 2160 },
+          },
+          audio: false,
+        });
+        video.srcObject = stream;
+        video.style.transform = facingMode === 'user' ? 'scaleX(-1)' : '';
+        updateTorchAvailability();
+      } catch (err) {
+        alert('Camera access is required. Please allow camera access in Settings and reload.');
+        console.error('getUserMedia error:', err);
+      }
+    }
+
+    function updateTorchAvailability() {
+      const track = video.srcObject && video.srcObject.getVideoTracks()[0];
+      const capabilities = track && track.getCapabilities ? track.getCapabilities() : {};
+      if (capabilities.torch) {
+        flashBtn.style.display = '';
+      } else {
+        flashBtn.style.display = 'none';
+        torchOn = false;
+        flashBtn.classList.remove('flash-on');
+      }
+    }
+
+    async function toggleFlash() {
+      const track = video.srcObject && video.srcObject.getVideoTracks()[0];
+      if (!track) return;
+      torchOn = !torchOn;
+      try {
+        await track.applyConstraints({ advanced: [{ torch: torchOn }] });
+        flashBtn.classList.toggle('flash-on', torchOn);
+      } catch (err) {
+        console.error('Torch toggle failed:', err);
+        torchOn = !torchOn;
+      }
+    }
+
+    async function switchCamera() {
+      flipBtn.disabled = true;
+      torchOn = false;
+      flashBtn.classList.remove('flash-on');
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(t => t.stop());
+        video.srcObject = null;
+      }
+      currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+      await initCamera(currentFacingMode);
+      flipBtn.disabled = false;
+    }
+
+    // ── Countdown ──
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function startCountdown() {
+      if (isCounting) return;
+      isCounting = true;
+      takePhotoBtn.disabled = true;
+      flipBtn.disabled = true;
+      flashBtn.disabled = true;
+
+      countdownOverlay.classList.add('visible');
+
+      for (let i = 5; i >= 1; i--) {
+        // Re-trigger animation each tick by cloning the node
+        const next = countdownNumber.cloneNode(false);
+        next.textContent = i;
+        countdownNumber.parentNode.replaceChild(next, countdownNumber.parentNode.querySelector('#countdown-number'));
+        await sleep(1000);
+      }
+
+      countdownOverlay.classList.remove('visible');
+      capturePhoto();
+
+      isCounting = false;
+      takePhotoBtn.disabled = false;
+      flipBtn.disabled = false;
+      flashBtn.disabled = false;
+    }
+
+    // ── Capture ──
+
+    function capturePhoto() {
+      const canvas = document.createElement('canvas');
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (currentFacingMode === 'user') {
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, -canvas.width, 0);
+      } else {
+        ctx.drawImage(video, 0, 0);
+      }
+      canvas.toBlob(blob => {
+        if (!blob) {
+          alert('Failed to capture photo. Please try again.');
+          return;
+        }
+        showPreview(blob);
+      }, 'image/jpeg', 0.95);
+    }
+
+    // ── Preview ──
+
+    function showPreview(blob) {
+      if (currentObjectURL) {
+        URL.revokeObjectURL(currentObjectURL);
+      }
+      currentBlob = blob;
+      currentObjectURL = URL.createObjectURL(blob);
+      previewImg.src = currentObjectURL;
+      showScreen('preview');
+    }
+
+    // ── Share / Download ──
+
+    async function sharePhoto() {
+      if (!currentBlob) return;
+
+      const file = new File([currentBlob], 'wedding-photo.jpg', { type: 'image/jpeg' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'Wedding Photo' });
+          doneMessage.textContent = 'Photo shared! Ready for the next one?';
+        } catch (err) {
+          if (err.name === 'AbortError') return; // user cancelled — stay on preview
+          console.error('Share failed:', err);
+          doneMessage.textContent = 'Something went wrong. Try again!';
+        }
+      } else {
+        // Fallback: download
+        const a = document.createElement('a');
+        a.href = currentObjectURL;
+        a.download = 'wedding-photo.jpg';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        doneMessage.textContent = 'Photo downloaded!';
+      }
+
+      showScreen('done');
+    }
+
+    // ── Event Listeners ──
+
+    takePhotoBtn.addEventListener('click', startCountdown);
+    flipBtn.addEventListener('click', switchCamera);
+    flashBtn.addEventListener('click', toggleFlash);
+    retakeBtn.addEventListener('click', () => showScreen('camera'));
+    shareBtn.addEventListener('click', sharePhoto);
+    backBtn.addEventListener('click', () => showScreen('camera'));
+
+    // ── Service Worker ──
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(err => {
+        console.warn('SW registration failed:', err);
+      });
+    }
+
+    // ── Init ──
+
+    initCamera(currentFacingMode);
+  </script>
+</body>
+</html>

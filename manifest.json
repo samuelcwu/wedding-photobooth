@@ -1,0 +1,18 @@
+{
+  "name": "Wedding Photobooth",
+  "short_name": "Photobooth",
+  "description": "A photobooth app for the wedding.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
