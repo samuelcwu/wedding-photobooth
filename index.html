@@ -235,9 +235,24 @@
     #back-btn:active {
       background: #d0d0d0;
     }
+
+    /* ── SCREEN FLASH ── */
+
+    #screen-flash {
+      position: fixed;
+      inset: 0;
+      background: #fff;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 100;
+      transition: opacity 0.08s ease-out;
+    }
+
   </style>
 </head>
 <body>
+
+  <div id="screen-flash"></div>
 
   <!-- Camera Screen -->
   <div id="camera-screen" class="screen active">
@@ -255,14 +270,14 @@
     <img id="preview-img" alt="Captured photo">
     <div id="preview-buttons">
       <button id="retake-btn">Retake</button>
-      <button id="share-btn">Share to Print</button>
+      <button id="share-btn">Save & Print</button>
     </div>
   </div>
 
   <!-- Done Screen -->
   <div id="done-screen" class="screen">
     <div id="done-content">
-      <p id="done-message">Photo shared!</p>
+      <p id="done-message">Photo saved to Camera Roll!</p>
       <button id="back-btn">Take Another Photo</button>
     </div>
   </div>
@@ -281,6 +296,7 @@
     const doneMessage     = document.getElementById('done-message');
     const flipBtn         = document.getElementById('flip-btn');
     const flashBtn        = document.getElementById('flash-btn');
+    const screenFlash     = document.getElementById('screen-flash');
 
     const screens = {
       camera:  document.getElementById('camera-screen'),
@@ -293,6 +309,7 @@
     let isCounting = false;
     let currentFacingMode = 'environment';
     let torchOn = false;
+    let hasTorch = false;
 
     function showScreen(name) {
       Object.values(screens).forEach(s => s.classList.remove('active'));
@@ -326,31 +343,36 @@
       } catch (e) {
         console.error('video.play() failed:', e);
       }
+      if (facingMode === 'user') {
+        const track = stream.getVideoTracks()[0];
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        if (caps.zoom) {
+          try { await track.applyConstraints({ advanced: [{ zoom: 1 }] }); } catch (e) {}
+        }
+      }
       updateTorchAvailability();
     }
 
     function updateTorchAvailability() {
       const track = video.srcObject && video.srcObject.getVideoTracks()[0];
       const capabilities = track && track.getCapabilities ? track.getCapabilities() : {};
-      if (capabilities.torch) {
-        flashBtn.style.display = '';
-      } else {
-        flashBtn.style.display = 'none';
-        torchOn = false;
-        flashBtn.classList.remove('flash-on');
-      }
+      hasTorch = !!capabilities.torch;
+      flashBtn.style.display = '';
+      if (!torchOn) flashBtn.classList.remove('flash-on');
     }
 
     async function toggleFlash() {
-      const track = video.srcObject && video.srcObject.getVideoTracks()[0];
-      if (!track) return;
       torchOn = !torchOn;
-      try {
-        await track.applyConstraints({ advanced: [{ torch: torchOn }] });
-        flashBtn.classList.toggle('flash-on', torchOn);
-      } catch (err) {
-        console.error('Torch toggle failed:', err);
-        torchOn = !torchOn;
+      flashBtn.classList.toggle('flash-on', torchOn);
+      if (hasTorch) {
+        const track = video.srcObject && video.srcObject.getVideoTracks()[0];
+        if (track) {
+          try {
+            await track.applyConstraints({ advanced: [{ torch: torchOn }] });
+          } catch (err) {
+            console.error('Torch toggle failed:', err);
+          }
+        }
       }
     }
 
@@ -402,6 +424,18 @@
     // ── Capture ──
 
     function capturePhoto() {
+      if (torchOn && currentFacingMode === 'user') {
+        screenFlash.style.opacity = '1';
+        setTimeout(() => {
+          doCapture();
+          setTimeout(() => { screenFlash.style.opacity = '0'; }, 80);
+        }, 100);
+      } else {
+        doCapture();
+      }
+    }
+
+    function doCapture() {
       const canvas = document.createElement('canvas');
       canvas.width  = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -437,17 +471,24 @@
 
     async function sharePhoto() {
       if (!currentBlob) return;
-      // Open image in Safari browser — Safari's own share button (⬆) shows the full
-      // native share sheet, which includes Canon Mini Print (unlike navigator.share).
-      const shareUrl = URL.createObjectURL(currentBlob);
-      const a = document.createElement('a');
-      a.href = shareUrl;
-      a.target = '_blank';
-      a.rel = 'noreferrer';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      doneMessage.textContent = 'Photo open in Safari — tap ⬆ to send to Canon Mini Print!';
+      const file = new File([currentBlob], 'wedding-photo.jpg', { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'Wedding Photo' });
+        } catch (err) {
+          if (err.name === 'AbortError') return; // user cancelled — stay on preview
+          console.error('Share failed:', err);
+        }
+      } else {
+        // Fallback: download
+        const a = document.createElement('a');
+        a.href = currentObjectURL;
+        a.download = 'wedding-photo.jpg';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      doneMessage.textContent = 'Saved! Open Canon Mini Print, pick your photo, and print.';
       showScreen('done');
     }
 
