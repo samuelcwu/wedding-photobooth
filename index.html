@@ -263,7 +263,7 @@
   <div id="done-screen" class="screen">
     <div id="done-content">
       <p id="done-message">Photo shared!</p>
-      <button id="back-btn">Back to Camera</button>
+      <button id="back-btn">Take Another Photo</button>
     </div>
   </div>
 
@@ -437,29 +437,17 @@
 
     async function sharePhoto() {
       if (!currentBlob) return;
-
-      const file = new File([currentBlob], 'wedding-photo.jpg', { type: 'image/jpeg' });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title: 'Wedding Photo' });
-          doneMessage.textContent = 'Photo shared! Ready for the next one?';
-        } catch (err) {
-          if (err.name === 'AbortError') return; // user cancelled — stay on preview
-          console.error('Share failed:', err);
-          doneMessage.textContent = 'Something went wrong. Try again!';
-        }
-      } else {
-        // Fallback: download
-        const a = document.createElement('a');
-        a.href = currentObjectURL;
-        a.download = 'wedding-photo.jpg';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        doneMessage.textContent = 'Photo downloaded!';
-      }
-
+      // Open image in Safari browser — Safari's own share button (⬆) shows the full
+      // native share sheet, which includes Canon Mini Print (unlike navigator.share).
+      const shareUrl = URL.createObjectURL(currentBlob);
+      const a = document.createElement('a');
+      a.href = shareUrl;
+      a.target = '_blank';
+      a.rel = 'noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      doneMessage.textContent = 'Photo open in Safari — tap ⬆ to send to Canon Mini Print!';
       showScreen('done');
     }
 
