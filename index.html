@@ -311,14 +311,11 @@
     async function initCamera(facingMode = 'environment') {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode,
-            width:  { ideal: 4096 },
-            height: { ideal: 2160 },
-          },
+          video: { facingMode },
           audio: false,
         });
         video.srcObject = stream;
+        await video.play();
         video.style.transform = facingMode === 'user' ? 'scaleX(-1)' : '';
         updateTorchAvailability();
       } catch (err) {
